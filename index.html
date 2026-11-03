@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hybrid Power Plant — Complete Purdue Model & Asset Inventory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-3 h-8 bg-amber-500 rounded-sm"></div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white">Hybrid Power Plant (Solar PV + OPV + BESS)</h1>
+        <p class="text-xs text-slate-400">Purdue Architecture Reference Model (Levels 0–4) — Complete Asset Inventory</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-2">
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Redundant PPC & SCADA
+      </span>
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        IEC 62443 / IEC 61850 Compliant
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+    
+    <!-- Left Panel: Chart & Metrics (6 cols) -->
+    <section class="lg:col-span-6 p-6 border-r border-slate-800 flex flex-col overflow-y-auto">
+      <div class="mb-3">
+        <h2 class="text-base font-semibold text-white">Operational Asset Density vs Purdue Segmentation Level</h2>
+        <p class="text-xs text-slate-400">Click any level bar to view all hardware, networking, protection, and security assets.</p>
+      </div>
+      
+      <!-- Chart Container -->
+      <div class="relative flex-1 min-h-[320px] bg-slate-900/50 rounded-xl p-4 border border-slate-800 flex items-center justify-center">
+        <canvas id="densityChart"></canvas>
+      </div>
+      
+      <!-- Key System Metrics -->
+      <div class="grid grid-cols-3 gap-3 mt-4">
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg">
+          <span class="text-xs text-slate-400 block">Substation Protection</span>
+          <span class="text-sm font-bold text-amber-400">Numerical IEDs & BCUs</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg">
+          <span class="text-xs text-slate-400 block">Field Controllers</span>
+          <span class="text-sm font-bold text-blue-400">PPC, Tracker SCU, MCU</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg">
+          <span class="text-xs text-slate-400 block">Switching Layers</span>
+          <span class="text-sm font-bold text-emerald-400">Access, Dist, Core</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Panel: Full Asset Detail Inspector (6 cols) -->
+    <section class="lg:col-span-6 p-6 bg-slate-900/30 flex flex-col overflow-y-auto">
+      <div id="inspectorContainer" class="space-y-4">
+        <!-- Dynamically injected asset inspector -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const purdueData = [
+      {
+        level: "Level 0: Physical Process Layer",
+        shortName: "Level 0",
+        density: 95,
+        color: "#f59e0b",
+        subsystems: "Solar PV Strings, OPV Flexible Fields, BESS Racks, Inverters, Switchgear, Sensors",
+        protocols: "Hardwired I/O, Analog loops (4-20mA), DC Signals, Modbus RTU Serial",
+        description: "Primary generation, storage, power conversion electronics, and field instrumentation.",
+        categories: [
+          {
+            name: "Solar PV Field Assets",
+            items: ["Monocrystalline PV strings", "DC combiner boxes & fuses", "Surge Protection Devices (SPDs)", "Tracker slewing drives", "Tilt/azimuth positioning sensors"]
+          },
+          {
+            name: "Organic Photovoltaic (OPV) Subfield",
+            items: ["Flexible/printed OPV modules", "Low-profile flexible junction boxes", "Local DC collection nodes", "Specialized spectral & irradiance sensors"]
+          },
+          {
+            name: "BESS Enclosures",
+            items: ["Lithium Iron Phosphate (LFP) battery racks", "Cell monitoring modules", "Liquid/air HVAC thermal management chillers", "Coolant distribution units", "Aerosol/clean-agent fire suppression", "Gas detectors (CO, H₂)", "DC main contactors"]
+          },
+          {
+            name: "Power Conversion Systems (PCS)",
+            items: ["Central & string solar inverters", "Bidirectional BESS inverters (Grid-Forming / Grid-Following)", "DC-DC converters"]
+          },
+          {
+            name: "Substation Primary High/Medium Voltage Assets",
+            items: ["MV/HV Step-up power transformers", "Gas-Insulated Switchgear (GIS) / Air-Insulated Switchgear (AIS) circuit breakers", "Disconnectors & earth switches", "Current Transformers (CTs) & Voltage Transformers (VTs/PTs)", "Surge arresters", "Auxiliary station service transformer (ASST)"]
+          }
+        ],
+        security: "Physical perimeter security, enclosure tamper sensors, electrical relay interlocks."
+      },
+      {
+        level: "Level 1: Basic Control & Instrumentation Layer",
+        shortName: "Level 1",
+        density: 85,
+        color: "#3b82f6",
+        subsystems: "Protection Relays, Redundant PPC, BMS, Tracker SCUs, Weather Station MCU, Access Switches",
+        protocols: "IEC 61850 (GOOSE/MMS), Modbus TCP, DNP3, RSTP, PRP Redundancy",
+        description: "Real-time deterministic automation, sub-millisecond numerical protection, and edge field controllers.",
+        categories: [
+          {
+            name: "Substation Control & Protection",
+            items: ["Numerical Distance Protection Relays (IEDs)", "Numerical Overcurrent Relays", "Transformer Differential Protection IEDs", "Merging Units (MUs)", "Phasor Measurement Units (PMUs)", "Bay Control Units (BCUs)"]
+          },
+          {
+            name: "Generation & Field Controllers",
+            items: ["Redundant Power Plant Controller (PPC Primary & Hot-Standby)", "Solar Tracker Unit Controllers (SCU)", "BESS Master Battery Management System (BMS)", "Meteorological Control Unit (MCU) / Weather Data Concentrators"]
+          },
+          {
+            name: "Meteorological Sensors",
+            items: ["Pyranometers (Global & Diffuse Irradiance)", "Ambient & back-of-panel temperature sensors", "Sonic anemometers (wind speed/direction)", "Barometric pressure sensors"]
+          },
+          {
+            name: "Level 0-1 Access Networking",
+            items: ["Ruggedized DIN-rail Industrial Access Switches (Westermo / Siemens RUGGEDCOM / Fortinet FGR)", "IEC 61850 GOOSE/MMS network interfaces", "Parallel Redundancy Protocol (PRP) hardware links"]
+          }
+        ],
+        security: "Port security (802.1X), GOOSE cryptographic signing, MACSec link encryption."
+      },
+      {
+        level: "Level 2: Supervisory Control & Local HMI Layer",
+        shortName: "Level 2",
+        density: 60,
+        color: "#10b981",
+        subsystems: "Local Maintenance HMIs, Sub-plant Area PLCs, Industrial Managed Distribution Switches",
+        protocols: "Modbus TCP, DNP3 over IP, OPC UA, Micro-VLAN Segmentation",
+        description: "Sub-plant coordination, local human-machine interfaces, and managed area network distribution.",
+        categories: [
+          {
+            name: "Supervisory & Operator Workstations",
+            items: ["Local Maintenance Operator HMI Workstations", "Local commissioning & diagnostic interfaces", "Override control stations"]
+          },
+          {
+            name: "Area Control PLCs",
+            items: ["Solar Island Sub-plant RTUs/PLCs", "OPV Subfield Area Controllers", "BESS Storage Island Area PLCs"]
+          },
+          {
+            name: "Level 2 Distribution Networking",
+            items: ["Industrial Managed Distribution Switches", "VLAN Segmentation (VLAN 10: SCADA, VLAN 20: GOOSE, VLAN 30: Metering, VLAN 40: CCTV)", "RSTP/MSTP redundant ring switches"]
+          }
+        ],
+        security: "Micro-VLAN segmentation, role-based operator authentication, local audit logs."
+      },
+      {
+        level: "Level 3: Plant Operations & Industrial Control Center (ICC)",
+        shortName: "Level 3",
+        density: 90,
+        color: "#8b5cf6",
+        subsystems: "Redundant SCADA Cluster, Process Historian, EWS, Industrial NGFW, SIEM, PAM Gateway, Core Switches",
+        protocols: "DNP3 IP, IEC 104, Syslog, NTP/PTP, DPI Inspection",
+        description: "Plant-wide supervisory operation, central logging, historical archiving, and OT cybersecurity enforcement.",
+        categories: [
+          {
+            name: "SCADA Supervisory Servers",
+            items: ["Primary SCADA Server", "Secondary / Hot-Standby Backup SCADA Server", "Real-time alarm & event handling cluster"]
+          },
+          {
+            name: "Plant Operations & Auxiliary Servers",
+            items: ["Time-Series Process Historian (generation, BESS cycling, weather logs)", "Engineering Workstations (EWS) for PLC/PPC/IED configurations", "IEEE 1588 PTP / NTP Grandmaster Clock Servers"]
+          },
+          {
+            name: "Plant Cybersecurity Equipment (OT Enclave)",
+            items: ["Next-Generation Industrial Firewalls (Fortinet FortiGate / FGR)", "Industrial Intrusion Detection System (IDS/IPS)", "Centralized Log Collector & SIEM Appliance", "WALLIX PAM4OT Privileged Access Management Gateway"]
+          },
+          {
+            name: "Level 3 Core Networking",
+            items: ["High-throughput Modular Core Industrial Switches", "VRRP Router Redundancy & LACP Aggregation links"]
+          }
+        ],
+        security: "Deep Packet Inspection (DPI), Privileged Access Management (PAM), centralized syslog/SIEM."
+      },
+      {
+        level: "Level 3.5: Industrial DMZ (IDMZ)",
+        shortName: "Level 3.5",
+        density: 50,
+        color: "#ec4899",
+        subsystems: "Data Diodes, Reverse Proxies, Secure Bastion Hosts, Central Patch Staging Relays",
+        protocols: "HTTPS, SFTP, One-Way Optical Data Links",
+        description: "Secure boundary isolation layer preventing direct corporate IT ingress into real-time OT networks.",
+        categories: [
+          {
+            name: "IDMZ Boundary Appliances",
+            items: ["Hardware Unidirectional Security Gateways / Data Diodes", "Reverse Proxy & Application Inspection Servers", "Secure Jump Servers / Bastion Hosts", "Centralized Patch & Antivirus Staging Relays"]
+          }
+        ],
+        security: "Hardware optical isolation, mandatory jump-host staging, MFA enforcement."
+      },
+      {
+        level: "Level 4: Enterprise, Business Logistics & External Interfaces",
+        shortName: "Level 4",
+        density: 70,
+        color: "#06b6d4",
+        subsystems: "TSO/DSO Gateways, Aggregator APIs, ERP, CMMS, Predictive Analytics",
+        protocols: "ICCP (IEC 60870-6 TASE.2), IEC 104, DNP3 over IP, REST APIs, TLS 1.3 / mTLS",
+        description: "Corporate enterprise management, transmission grid dispatch, and automated market trading.",
+        categories: [
+          {
+            name: "Corporate Enterprise Systems",
+            items: ["Enterprise Resource Planning (ERP)", "Computerized Maintenance Management System (CMMS)", "Business Intelligence (BI) Analytics Platforms"]
+          },
+          {
+            name: "External Grid & Market Interfaces",
+            items: ["TSO/DSO SCADA Gateways & Secure RTUs (ICCP / TASE.2)", "Virtual Power Plant (VPP) Aggregator APIs", "Energy Market Bidding Gateways (EPEX SPOT / Nord Pool APIs)"]
+          }
+        ],
+        security: "Mutual TLS (mTLS), IPsec encrypted VPN tunnels, API rate limiting & inspection."
+      }
+    ];
+
+    let currentSelectedIndex = 1; // Default to Level 1 (Control)
+
+    function renderDetails(index) {
+      const data = purdueData[index];
+      const container = document.getElementById('inspectorContainer');
+      
+      container.innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <!-- Header -->
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded" style="background-color: ${data.color}20; color: ${data.color}">
+                ${data.shortName}
+              </span>
+              <h3 class="text-lg font-bold text-white mt-1">${data.level}</h3>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block font-mono">Asset Density</span>
+              <span class="text-base font-bold text-white">${data.density} / 100</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-300 mb-4 leading-relaxed">${data.description}</p>
+          
+          <!-- Category List -->
+          <div class="space-y-4">
+            ${data.categories.map(cat => `
+              <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2 text-amber-400/90">
+                  ${cat.name}
+                </span>
+                <ul class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  ${cat.items.map(item => `
+                    <li class="text-xs text-slate-200 flex items-center space-x-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${data.color}"></span>
+                      <span class="truncate">${item}</span>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Protocols & Security -->
+          <div class="mt-4 grid grid-cols-1 gap-2 pt-3 border-t border-slate-800">
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Communication Protocols</span>
+              <p class="text-xs font-mono bg-slate-950 p-2 rounded border border-slate-800 text-blue-300">${data.protocols}</p>
+            </div>
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">IEC 62443 Security Controls</span>
+              <p class="text-xs text-emerald-400 bg-emerald-950/30 p-2 rounded border border-emerald-900/40">${data.security}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Chart Setup
+    const ctx = document.getElementById('densityChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: purdueData.map(d => d.shortName),
+        datasets: [{
+          label: 'Asset Density Index',
+          data: purdueData.map(d => d.density),
+          backgroundColor: purdueData.map(d => d.color + 'DD'),
+          borderColor: purdueData.map(d => d.color),
+          borderWidth: 1.5,
+          borderRadius: 6,
+          hoverBackgroundColor: purdueData.map(d => d.color)
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => ` Asset Density Index: ${context.raw}/100`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: '#1e293b' },
+            ticks: { color: '#94a3b8' },
+            max: 100
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#f8fafc', font: { weight: '600' } }
+          }
+        },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            currentSelectedIndex = elements[0].index;
+            renderDetails(currentSelectedIndex);
+          }
+        }
+      }
+    });
+
+    // Initial render
+    renderDetails(currentSelectedIndex);
+  </script>
+</body>
+</html>
